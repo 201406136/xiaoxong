@@ -108,7 +108,27 @@ def get_tianhang():
         chp = ""
     return chp
 
-
+def birthday():
+    week_list = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
+    year = localtime().tm_year
+    month = localtime().tm_mon
+    day = localtime().tm_mday
+    today = datetime.date(datetime(year=year, month=month, day=day))
+    week = week_list[today.isoweekday() % 7]
+    birthdays = {}
+    for k, v in config.items():
+        if k[0:5] == "birth":
+            birthdays[k] = v
+    birthday_data=[]
+    for key, value in birthdays.items():
+        # 获取距离下次生日的时间
+        birth_day = get_birthday(value["birthday"], year, today)
+        if birth_day == 0:
+            birthday_data.append("今天{}生日哦，祝{}生日快乐！".format(value["name"], value["name"]))
+        else:
+            birthday_data.append("距离{}的生日还有{}天".format(value["name"], birth_day))
+        # 将生日数据插入data
+    return birthday_data
 def get_birthday(birthday, year, today):
     birthday_year = birthday.split("-")[0]
     # 判断是否为农历生日
@@ -160,7 +180,7 @@ def get_ciba():
 
 
 def send_message(to_user, access_token, region_name, weather, temp, wind_dir, note_ch, note_en, max_temp, min_temp,
-                 sunrise, sunset, category, pm2p5, proposal, chp):
+                 sunrise, sunset, category, pm2p5, proposal, chp,birthday):
     url = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={}".format(access_token)
     week_list = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
     year = localtime().tm_year
@@ -168,14 +188,6 @@ def send_message(to_user, access_token, region_name, weather, temp, wind_dir, no
     day = localtime().tm_mday
     today = datetime.date(datetime(year=year, month=month, day=day))
     week = week_list[today.isoweekday() % 7]
-    # 获取在一起的日子的日期格式
-    #love_year = int(config["love_date"].split("-")[0])
-    #love_month = int(config["love_date"].split("-")[1])
-    #love_day = int(config["love_date"].split("-")[2])
-    #love_date = date(love_year, love_month, love_day)
-    # 获取在一起的日期差
-    #love_days = str(today.__sub__(love_date)).split(" ")[0]
-    # 获取所有生日数据
     birthdays = {}
     for k, v in config.items():
         if k[0:5] == "birth":
@@ -189,6 +201,10 @@ def send_message(to_user, access_token, region_name, weather, temp, wind_dir, no
             "date": {
                 "value": "{} {}".format(today, week),
                 "color": get_color()
+            },
+            "birthday1":{
+                "value":birthday,
+                "color":get_color(),
             },
             "region": {
                 "value": region_name,
@@ -206,10 +222,6 @@ def send_message(to_user, access_token, region_name, weather, temp, wind_dir, no
                 "value": wind_dir,
                 "color": get_color()
             },
-            #"love_day": {
-            #    "value": love_days,
-            #    "color": get_color()
-            #},
             "note_en": {
                 "value": note_en,
                 "color": get_color()
@@ -253,15 +265,6 @@ def send_message(to_user, access_token, region_name, weather, temp, wind_dir, no
 
         }
     }
-    for key, value in birthdays.items():
-        # 获取距离下次生日的时间
-        birth_day = get_birthday(value["birthday"], year, today)
-        if birth_day == 0:
-            birthday_data = "今天{}生日哦，祝{}生日快乐！".format(value["name"], value["name"])
-        else:
-            birthday_data = "距离{}的生日还有{}天".format(value["name"], birth_day)
-        # 将生日数据插入data
-        data["data"][key] = {"value": birthday_data, "color": get_color()}
     headers = {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -298,16 +301,20 @@ if __name__ == "__main__":
     # 接收的用户
     users = config["user"]
     # 传入地区获取天气信息
-    region = config["region"]
-    weather, temp, max_temp, min_temp, wind_dir, sunrise, sunset, category, pm2p5, proposal = get_weather(region)
+    region=config['region']
+    region_xiong = region[0]
+    region_dog=region[1]
     note_ch = config["note_ch"]
     note_en = config["note_en"]
     if note_ch == "" and note_en == "":
         # 获取词霸每日金句
         note_ch, note_en = get_ciba()
     chp = get_tianhang()
+    #获取生日
+    birthday=birthday()
     # 公众号推送消息
-    for user in users:
-        send_message(user, accessToken, region, weather, temp, wind_dir, note_ch, note_en, max_temp, min_temp, sunrise,
-                     sunset, category, pm2p5, proposal, chp)
+    for i,user in enumerate(users):
+        weather, temp, max_temp, min_temp, wind_dir, sunrise, sunset, category, pm2p5, proposal = get_weather(region[i])
+        send_message(user, accessToken, region_xiong, weather, temp, wind_dir, note_ch, note_en, max_temp, min_temp, sunrise,
+                 sunset, category, pm2p5, proposal, chp,birthday[i])
     os.system("pause")
